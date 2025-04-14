@@ -1,17 +1,33 @@
 package org.example;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
 public class MyHashMap<K, V> implements MyMap<K, V> {
     public static final int INITIAL_CAPACITY = 16;
+    public static final double LOAD_FACTOR = 0.75;
     private Entry<K, V>[] array = new Entry[INITIAL_CAPACITY];
     private int size = 0;
     @Override
     public V put(K key, V value) {
-        int position = getElementPosition(key);
-        Entry<K, V> existedElement = array[position];
+        if (size >= array.length * LOAD_FACTOR){
+            increaseArray();
+        }
+        V oldValue = put(key, value, array);
+        if(oldValue == null){
+            size++;
+        }
+        return oldValue;
+    }
+
+    private V put(K key, V value, Entry[] dst) {
+        int position = getElementPosition(key, dst.length);
+        Entry<K, V> existedElement = dst[position];
         if(existedElement == null){
             Entry entry = new Entry<>(key, value, null);
-            array[position] = entry;
-            size++;
+            dst[position] = entry;
             return null;
         }else {
             while (true){
@@ -23,18 +39,16 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
                 if(existedElement.next == null){
                     Entry entry = new Entry<>(key, value, null);
                     existedElement.next = entry;
-                    size++;
                     return null;
                 }
                 existedElement = existedElement.next;
             }
         }
-
     }
 
     @Override
     public V get(Object key) {
-        int position = getElementPosition(key);
+        int position = getElementPosition(key, array.length);
         Entry<K, V> existedElement = array[position];
         while(existedElement != null){
             if(key.hashCode() == existedElement.key.hashCode() && key.equals(existedElement.key)){
@@ -47,7 +61,7 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
 
     @Override
     public V remove(Object key) {
-        int position = getElementPosition(key);
+        int position = getElementPosition(key, array.length);
         Entry<K, V> existedElement = array[position];
         if(existedElement != null && key.hashCode() == existedElement.key.hashCode() && key.equals(existedElement.key)){
             V oldValue = existedElement.value;
@@ -72,10 +86,6 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
         return null;
     }
 
-    private int getElementPosition(Object key){
-        return Math.abs(key.hashCode() % array.length);
-    }
-
     @Override
     public void clear() {
         array  = new Entry[INITIAL_CAPACITY];
@@ -90,6 +100,48 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
     @Override
     public boolean isEmpty() {
         return size == 0;
+    }
+
+    @Override
+    public Set<K> keySet() {
+        Set<K> result = new HashSet<>();
+        for(Entry entry: array){
+            Entry<K, V> existedElement = entry;
+            while (existedElement != null){
+                result.add(existedElement.key);
+                existedElement = existedElement.next;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public Collection<V> values() {
+        Collection<V> result = new ArrayList<>();
+        for(Entry entry: array){
+            Entry<K, V> existedElement = entry;
+            while (existedElement != null){
+                result.add(existedElement.value);
+                existedElement = existedElement.next;
+            }
+        }
+        return result;
+    }
+
+    private int getElementPosition(Object key, int arrayLength){
+        return Math.abs(key.hashCode() % arrayLength);
+    }
+
+    private void increaseArray(){
+        Entry<K, V>[] newArray = new Entry[array.length * 2];
+        for(Entry entry: array){
+            Entry<K, V> existedElement = entry;
+            while (existedElement != null){
+                put(existedElement.key, existedElement.value, newArray);
+                existedElement = existedElement.next;
+            }
+        }
+        array = newArray;
     }
 
 

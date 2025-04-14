@@ -12,7 +12,7 @@ public interface MyMap<K, V> {
     void clear();
 
     /*boolean containsKey(Object key);
-    boolean containsValue(Object value);
+    boolean containsValue(Object value);*/
     Set<K> keySet();
-    Collection<V> values();*/
+    Collection<V> values();
 }
