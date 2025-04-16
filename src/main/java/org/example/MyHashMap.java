@@ -1,15 +1,31 @@
 package org.example;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class MyHashMap<K, V> implements MyMap<K, V> {
     public static final int INITIAL_CAPACITY = 16;
     public static final double LOAD_FACTOR = 0.75;
-    private Entry<K, V>[] array = new Entry[INITIAL_CAPACITY];
+    private Node<K, V>[] array = new Node[INITIAL_CAPACITY];
     private int size = 0;
+
+    static final int hash(Object key) {
+        int h;
+        return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
+    }
+    static private int getElementPosition(int hashKey, int arrayLength){
+        return hashKey & (arrayLength - 1);
+    }
+    private void increaseArray(){
+        Node<K, V>[] newArray = new Node[array.length * 2];
+        for(Node<K, V> node : array){
+            Node<K, V> existedElement = node;
+            while (existedElement != null){
+                put(existedElement.key, existedElement.value, newArray);
+                existedElement = existedElement.next;
+            }
+        }
+        array = newArray;
+    }
     @Override
     public V put(K key, V value) {
         if (size >= array.length * LOAD_FACTOR){
@@ -22,23 +38,24 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
         return oldValue;
     }
 
-    private V put(K key, V value, Entry[] dst) {
-        int position = getElementPosition(key, dst.length);
-        Entry<K, V> existedElement = dst[position];
+    private V put(K key, V value, Node<K, V>[] dst) {
+        int hasKey = hash(key);
+        int position = getElementPosition(hasKey, dst.length);
+        Node<K, V> existedElement = dst[position];
         if(existedElement == null){
-            Entry entry = new Entry<>(key, value, null);
-            dst[position] = entry;
+            Node<K, V> node = new Node<>(hasKey, key, value, null);
+            dst[position] = node;
             return null;
         }else {
             while (true){
-                if(key.hashCode() == existedElement.key.hashCode() && key.equals(existedElement.key)){
+                if(hasKey == existedElement.hash && key.equals(existedElement.key)){
                     V oldValue = existedElement.value;
                     existedElement.value = value;
                     return oldValue;
                 }
                 if(existedElement.next == null){
-                    Entry entry = new Entry<>(key, value, null);
-                    existedElement.next = entry;
+                    Node<K, V> node = new Node<>(hasKey, key, value, null);
+                    existedElement.next = node;
                     return null;
                 }
                 existedElement = existedElement.next;
@@ -48,10 +65,11 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
 
     @Override
     public V get(Object key) {
-        int position = getElementPosition(key, array.length);
-        Entry<K, V> existedElement = array[position];
+        int hasKey = hash(key);
+        int position = getElementPosition(hasKey, array.length);
+        Node<K, V> existedElement = array[position];
         while(existedElement != null){
-            if(key.hashCode() == existedElement.key.hashCode() && key.equals(existedElement.key)){
+            if(hasKey == existedElement.hash && key.equals(existedElement.key)){
                 return existedElement.value;
             }
             existedElement = existedElement.next;
@@ -61,20 +79,21 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
 
     @Override
     public V remove(Object key) {
-        int position = getElementPosition(key, array.length);
-        Entry<K, V> existedElement = array[position];
-        if(existedElement != null && key.hashCode() == existedElement.key.hashCode() && key.equals(existedElement.key)){
+        int hasKey = hash(key);
+        int position = getElementPosition(hasKey, array.length);
+        Node<K, V> existedElement = array[position];
+        if(existedElement != null && hasKey == existedElement.hash && key.equals(existedElement.key)){
             V oldValue = existedElement.value;
             array[position] = existedElement.next;
             size--;
             return oldValue;
         }else {
             while(existedElement != null){
-                Entry<K, V> nextElement = existedElement.next;
+                Node<K, V> nextElement = existedElement.next;
                 if(nextElement == null){
                     return null;
                 }
-                if(key.hashCode() == nextElement.key.hashCode() && key.equals(nextElement.key)){
+                if(hasKey == existedElement.hash && key.equals(nextElement.key)){
                     V oldValue = nextElement.value;
                     existedElement.next = nextElement.next;
                     size--;
@@ -88,7 +107,7 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
 
     @Override
     public void clear() {
-        array  = new Entry[INITIAL_CAPACITY];
+        array  = new Node[INITIAL_CAPACITY];
         size = 0;
     }
 
@@ -105,8 +124,8 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
     @Override
     public Set<K> keySet() {
         Set<K> result = new HashSet<>();
-        for(Entry entry: array){
-            Entry<K, V> existedElement = entry;
+        for(Node<K, V> node : array){
+            Node<K, V> existedElement = node;
             while (existedElement != null){
                 result.add(existedElement.key);
                 existedElement = existedElement.next;
@@ -118,8 +137,8 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
     @Override
     public Collection<V> values() {
         Collection<V> result = new ArrayList<>();
-        for(Entry entry: array){
-            Entry<K, V> existedElement = entry;
+        for(Node<K, V> node : array){
+            Node<K, V> existedElement = node;
             while (existedElement != null){
                 result.add(existedElement.value);
                 existedElement = existedElement.next;
@@ -128,32 +147,68 @@ public class MyHashMap<K, V> implements MyMap<K, V> {
         return result;
     }
 
-    private int getElementPosition(Object key, int arrayLength){
-        return Math.abs(key.hashCode() % arrayLength);
-    }
-
-    private void increaseArray(){
-        Entry<K, V>[] newArray = new Entry[array.length * 2];
-        for(Entry entry: array){
-            Entry<K, V> existedElement = entry;
+    @Override
+    public Set<Entry<K, V>> entrySet() {
+        Set<Entry<K, V>> result = new HashSet<>();
+        for(Node<K, V> node : array){
+            Node<K, V> existedElement = node;
             while (existedElement != null){
-                put(existedElement.key, existedElement.value, newArray);
+                result.add(existedElement);
                 existedElement = existedElement.next;
             }
         }
-        array = newArray;
+        return result;
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+        return get(key) != null;
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+        int hashValue = value.hashCode();
+
+        for(Node<K, V> node : array){
+            Node<K, V> existedElement = node;
+            while (existedElement != null){
+                if(existedElement.value.hashCode() == hashValue && existedElement.value.equals(value)){
+                    return true;
+                }
+                existedElement = existedElement.next;
+            }
+        }
+        return false;
     }
 
 
-    private class Entry<K, V>{
-        private K key;
-        private V value;
-        private Entry next;
 
-        public Entry(K key, V value, Entry next) {
+    private static class Node<K, V> implements MyMap.Entry<K, V>{
+        private final int hash;
+        private final K key;
+        private V value;
+        private Node<K, V> next;
+
+        public Node(int hash, K key, V value, Node<K, V> next) {
+            this.hash = hash;
             this.key = key;
             this.value = value;
             this.next = next;
+        }
+
+        @Override
+        public K getKey() {
+            return key;
+        }
+
+        @Override
+        public V getValue() {
+            return value;
+        }
+
+        @Override
+        public V setValue(V value) {
+            return null;
         }
     }
 }
